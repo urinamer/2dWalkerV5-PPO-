@@ -20,16 +20,14 @@ critic = Critic(obs_dim)  # The critic only evaluates the state, not actions!
 actor_optimizer = torch.optim.Adam(actor.parameters(), lr=3e-4)
 critic_optimizer = torch.optim.Adam(critic.parameters(),lr = 3e-4)
 
-critic_loss = nn.HuberLoss()
+critic_loss_fn = nn.HuberLoss()
 buffer = RollOutBuffer(size=2048, obs_dim=obs_dim, action_dim=action_dim)
 
 
 
 #data for plotting
-sum_actor_loss = 0
-total_rewards = 0
+num_of_ppo_elements = 0
 num_of_clipped = 0
-num_of_steps = 1
 losses = [0.0]
 rewards = [0]
 clipped_fractions = [0.0]
@@ -37,16 +35,15 @@ clipped_fractions = [0.0]
 
 def ppo_loss(advantage, old_log_prob, new_log_prob, clip_epsilon=0.2):
     global num_of_clipped
-    global clipped_fractions
-    global num_of_steps
+    global num_of_ppo_elements
 
     ratio = torch.exp(new_log_prob - old_log_prob)
     surr1 = ratio * advantage
     surr2 = torch.clamp(ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon) * advantage
 
     with torch.no_grad():
-        num_of_clipped += (surr1 > surr2).sum().item()
-        clipped_fractions.append(num_of_clipped/num_of_steps)
+        num_of_clipped += ((ratio < 1.0 - clip_epsilon) | (ratio > 1.0 + clip_epsilon)).sum().item()# gets number of times clipped
+        num_of_ppo_elements += ratio.numel()
     return -torch.min(surr1, surr2).mean()
 
 def plot_training_data(rewards,losses,clip_fractions):
@@ -81,7 +78,13 @@ def plot_training_data(rewards,losses,clip_fractions):
 current_obs, info = env.reset()
 
 for episode in range(100):
+    global num_of_clipped,num_of_ppo_elements
     # Phase 1: Sequential Experience Collection
+    total_rewards = 0
+    sum_actor_loss = 0
+    num_of_steps = 1
+    num_of_ppo_elements = 0
+    num_of_clipped = 0
     for _ in range(2048):
         with torch.no_grad():
             obs_tensor = torch.FloatTensor(current_obs)
@@ -123,7 +126,7 @@ for episode in range(100):
 
             # Losses
             actor_loss = ppo_loss(advantage, old_log_prob, new_log_prob)
-            critic_loss = critic_loss(new_value, target)  # Or value-clipping loss
+            critic_loss = critic_loss_fn(new_value, target)  # Or value-clipping loss
 
             total_loss = actor_loss + critic_loss
 
@@ -140,6 +143,7 @@ for episode in range(100):
 
     rewards.append(total_rewards)
     losses.append(sum_actor_loss / num_of_steps)
+    clipped_fractions.append(num_of_clipped/num_of_ppo_elements)
     buffer.clear()
 
 torch.save(actor.state_dict(),"actor_weights.pt")
