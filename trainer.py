@@ -20,6 +20,7 @@ critic = Critic(obs_dim)  # The critic only evaluates the state, not actions!
 actor_optimizer = torch.optim.Adam(actor.parameters(), lr=3e-4)
 critic_optimizer = torch.optim.Adam(critic.parameters(),lr = 3e-4)
 
+critic_loss = nn.HuberLoss()
 buffer = RollOutBuffer(size=2048, obs_dim=obs_dim, action_dim=action_dim)
 
 
@@ -43,8 +44,8 @@ def ppo_loss(advantage, old_log_prob, new_log_prob, clip_epsilon=0.2):
     surr1 = ratio * advantage
     surr2 = torch.clamp(ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon) * advantage
 
-    if min(surr1.item(),surr2.item()) is surr2:
-        num_of_clipped += 1
+    with torch.no_grad():
+        num_of_clipped += (surr1 > surr2).sum().item()
         clipped_fractions.append(num_of_clipped/num_of_steps)
     return -torch.min(surr1, surr2).mean()
 
@@ -71,10 +72,15 @@ def plot_training_data(rewards,losses,clip_fractions):
     ax3.grid(True)
 
 
+    plt.tight_layout()
+
+    plt.show()
+
+
 # Core execution loop
 current_obs, info = env.reset()
 
-for episode in range(1000):
+for episode in range(100):
     # Phase 1: Sequential Experience Collection
     for _ in range(2048):
         with torch.no_grad():
@@ -96,7 +102,7 @@ for episode in range(1000):
             current_obs = next_obs
 
         total_rewards += reward
-        rewards.append(total_rewards)
+
 
     # Phase 2: Compute GAE before splitting data
     with torch.no_grad():
@@ -104,9 +110,10 @@ for episode in range(1000):
     buffer.calculateAdvantagesAndReturns(last_value, done)
 
     # Phase 3: Shuffled Mini-Batch Optimization Updates
+    batch_size = 100
     for epoch in range(5):
         # Pythonic way to exhaust a generator loop completely
-        for obs, action, old_log_prob, value, advantage, target in buffer.get_batches(batch_size=100):
+        for obs, action, old_log_prob, value, advantage, target in buffer.get_batches(batch_size):
             # Recalculate predictions with current network states
             new_mean, new_std = actor(obs)
             new_dist = Normal(new_mean, new_std)
@@ -116,13 +123,12 @@ for episode in range(1000):
 
             # Losses
             actor_loss = ppo_loss(advantage, old_log_prob, new_log_prob)
-            critic_loss = nn.HuberLoss()(new_value, target)  # Or value-clipping loss
+            critic_loss = critic_loss(new_value, target)  # Or value-clipping loss
 
             total_loss = actor_loss + critic_loss
 
-            sum_actor_loss += actor_loss
-            losses.append(sum_actor_loss/num_of_steps)
-            num_of_steps += 1
+            sum_actor_loss += actor_loss.sum().item()
+            num_of_steps += batch_size
 
 
             # Optimization Step
@@ -132,7 +138,10 @@ for episode in range(1000):
             critic_optimizer.step()
             actor_optimizer.step()
 
+    rewards.append(total_rewards)
+    losses.append(sum_actor_loss / num_of_steps)
     buffer.clear()
 
-
+torch.save(actor.state_dict(),"actor_weights.pt")
+torch.save(critic.state_dict(),"critic_weights.pt")
 plot_training_data(rewards,losses,clipped_fractions)

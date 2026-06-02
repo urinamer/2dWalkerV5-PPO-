@@ -69,7 +69,6 @@ class RollOutBuffer:
 
             start_index = end_index + 1
 
-        yield None
 
 
     def is_full(self):
