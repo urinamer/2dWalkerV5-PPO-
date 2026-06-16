@@ -51,11 +51,8 @@ class RollOutBuffer:
         indexes = np.arange(self.size)# making an array of 1,2,3,4,5...size-1
         np.random.shuffle(indexes)
 
-        start_index = 0
-        end_index = batch_size
-        while end_index < self.size:
+        for start_index in range(0,self.size,batch_size):
             end_index = start_index + batch_size
-
             batch_slice = indexes[start_index:end_index]
 
             yield (
@@ -67,14 +64,15 @@ class RollOutBuffer:
                 torch.FloatTensor(self.returns[batch_slice])
             )
 
-            start_index = end_index + 1
-
 
 
     def is_full(self):
         return self.size is self.current_insert
 
-
+    def normalize_advantages(self):
+        mean = np.mean(self.advantages)
+        std = np.std(self.advantages)
+        self.advantages = (self.advantages - mean)/(std+1e-8)
 
 
 

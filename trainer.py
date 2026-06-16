@@ -8,21 +8,21 @@ from Critic import Critic
 from RollOutBuffer import RollOutBuffer
 import matplotlib.pyplot as plt
 
-# Assuming your custom classes are imported here
 
 env = gym.make("Walker2d-v5")
 obs_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 
-# Models & single optimizer setup
+# models & single optimizer setup
 actor = Actor(obs_dim, action_dim)
-critic = Critic(obs_dim)  # The critic only evaluates the state, not actions!
+critic = Critic(obs_dim)
 actor_optimizer = torch.optim.Adam(actor.parameters(), lr=3e-4)
 critic_optimizer = torch.optim.Adam(critic.parameters(),lr = 3e-4)
 
 critic_loss_fn = nn.HuberLoss()
 buffer = RollOutBuffer(size=2048, obs_dim=obs_dim, action_dim=action_dim)
-
+#learning rate decay
+scheduler = torch.optim.lr_scheduler.LinearLR(actor_optimizer, start_factor=1.0, end_factor=0.1, total_iters=3000)
 
 
 #data for plotting
@@ -77,8 +77,7 @@ def plot_training_data(rewards,losses,clip_fractions):
 # Core execution loop
 current_obs, info = env.reset()
 
-for episode in range(100):
-    global num_of_clipped,num_of_ppo_elements
+for episode in range(3000):
     # Phase 1: Sequential Experience Collection
     total_rewards = 0
     sum_actor_loss = 0
@@ -111,6 +110,10 @@ for episode in range(100):
     with torch.no_grad():
         last_value = critic(torch.FloatTensor(current_obs)).item()
     buffer.calculateAdvantagesAndReturns(last_value, done)
+
+    #Advantage normalization
+    buffer.normalize_advantages()
+
 
     # Phase 3: Shuffled Mini-Batch Optimization Updates
     batch_size = 100

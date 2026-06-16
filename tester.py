@@ -8,7 +8,7 @@ ENV_NAME = "Walker2d-v5"
 EPISODES_TO_WATCH = 5
 
 # 2. Initialize the environment with human rendering enabled
-env = gym.make(ENV_NAME, render_mode="human")
+env = gym.make(ENV_NAME, render_mode="human",max_episode_steps=100000)
 obs_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 
@@ -24,6 +24,7 @@ for episode in range(EPISODES_TO_WATCH):
     observation, info = env.reset()
     done = False
     total_reward = 0
+    num_of_steps = 0
 
     print(f"--- Starting Episode {episode + 1} ---")
 
@@ -44,10 +45,11 @@ for episode in range(EPISODES_TO_WATCH):
         observation, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
         total_reward += reward
+        num_of_steps += 1
 
         # Optional: Add a tiny sleep delay if the physics simulation runs too fast for your monitor
         time.sleep(0.01)
 
-    print(f"Episode {episode + 1} finished with Total Reward: {total_reward:.2f}")
+    print(f"Episode {episode + 1} finished with Total Reward: {total_reward:.2f} and {num_of_steps} steps")
 
 env.close()
