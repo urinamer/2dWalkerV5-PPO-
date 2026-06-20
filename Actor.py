@@ -21,5 +21,6 @@ class Actor(nn.Module):
 
         log_std = self.std_layer(x)
         std = torch.exp(log_std)
+        std = torch.clamp(std,min = 0.1,max = 1)#clamping the std to allow exploration far in training
 
         return mean,std

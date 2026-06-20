@@ -77,7 +77,7 @@ def plot_training_data(rewards,losses,clip_fractions):
 # Core execution loop
 current_obs, info = env.reset()
 
-for episode in range(3000):
+for episode in range(6000):
     # Phase 1: Sequential Experience Collection
     total_rewards = 0
     sum_actor_loss = 0
