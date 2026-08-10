@@ -10,8 +10,7 @@ In this project I trained a **MuJoCo environment** of a biped robot to **walk on
 
 # Demo
 
-
-
+<img width="400" height="250" alt="Screencast from 2026-08-10 13-04-37" src="https://github.com/user-attachments/assets/bfdf90cc-a539-4bb9-9229-468f5251476a" />
 
 ---
 
