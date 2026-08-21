@@ -54,6 +54,3 @@ Because the advantage estimation is calculated using the value which is itself c
 
 This allows us to **use the same experience 3-10 times** until the probability changes past the point where using it to calculate the advantage will inflict badly on training.
 
-```
-
-```
